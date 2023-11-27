@@ -1,0 +1,17 @@
+{
+  "name": "wikixmldumptojson",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Tool to help with the DTU Course Computational Tools For Big Data but can be freely used.  This tool consists of two parts. A Wikipedia Reader and a Wikipedia splitter. If you are just interested in converting the dump to JSON, just use the Wikipedia splitter.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "openai": "^4.20.0",
+    "wtf_wikipedia": "^10.2.1",
+    "wtf-plugin-summary": "^1.0.0"
+  }
+}
