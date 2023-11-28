@@ -137,6 +137,7 @@ pip-selfcheck.json
 
 # End of https://www.gitignore.io/api/python
 node_modules
-extracted_files
+1_wikisplitter_output
+2_wikitext_parser_output
 articles_with_events
 dump.xml
