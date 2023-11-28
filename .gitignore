@@ -136,3 +136,6 @@ pyvenv.cfg
 pip-selfcheck.json
 
 # End of https://www.gitignore.io/api/python
+node_modules
+extracted_files
+articles_with_events
