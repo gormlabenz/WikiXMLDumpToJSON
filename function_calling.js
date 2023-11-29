@@ -5,16 +5,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const model = 'gpt-3.5-turbo-1106'
 
-async function getPostCompletion({ text }) {
+async function getPostCompletion({ title, text }) {
   const messages = [
     {
       role: 'system',
-      content:
-        'Your task is to extract dates and related event information from the provided text.',
+      content: 'Your task is to extract events from the provided text.',
     },
     {
       role: 'user',
-      content: `${text}`,
+      content: `${title} - ${text}`,
     },
   ]
   const functions = [
@@ -32,7 +31,7 @@ async function getPostCompletion({ text }) {
                 title: {
                   type: 'string',
                   description:
-                    "Title of the event, don't include date, limited to 3 words.",
+                    "Maximum three words that summarizes the event, don't include dates or locations.",
                 },
                 summary: {
                   type: 'string',
@@ -104,6 +103,7 @@ async function processArticles() {
 
       const { events } = await getPostCompletion({
         text: article.sentencesWithDates,
+        title: article.title,
       })
 
       article.events = events

@@ -6,7 +6,10 @@ import cliProgress from 'cli-progress'
 
 wtf.extend(wtfSummary)
 
-const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic)
+const opt = {
+  format: '[{bar}] {percentage}% | ETA: {eta_formatted}m | {value}/{total}',
+}
+const bar = new cliProgress.SingleBar(opt, cliProgress.Presets.shades_classic)
 
 // Setzen von inputFolderPath durch Kommandozeilenargument oder Standardwert
 const defaultInputPath = './1_wikisplitter_output'
@@ -85,6 +88,7 @@ const readAndParseFile = (part) => {
               // console.log('---', article.title)
               return {
                 title: article.title,
+                id: article.id,
                 history: historySection.text(),
                 coordinates: coordinates[coordinates.length - 1],
                 shortDescription,
@@ -116,25 +120,37 @@ const saveJson = (data, fileName) => {
   })
 }
 
+async function processChunk(chunk) {
+  return Promise.all(chunk.map(readAndParseFile))
+}
+
 async function run() {
   if (!partsLength) {
     partsLength = await countFilesInDirectory(inputFolderPath)
   }
-  // remove by WikiSplitter automatically generated siteinfo.json
+
   const parts = Array.from({ length: partsLength }).map((_, i) => i)
   bar.start(parts.length * 100, 0)
-  Promise.all(parts.map(readAndParseFile))
-    .then((allParsedArticles) => {
-      allParsedArticles.forEach((parsedArticles, i) => {
+
+  const chunkSize = 100
+  for (let i = 0; i < parts.length; i += chunkSize) {
+    const chunk = parts.slice(i, i + chunkSize)
+
+    try {
+      const chunkResult = await processChunk(chunk)
+      chunkResult.forEach((parsedArticles, j) => {
         saveJson(
           parsedArticles,
-          `${outputFolderPath}/parsed_wiki_part_${i}.json`
+          `${outputFolderPath}/parsed_wiki_part_${i + j}.json`
         )
       })
-    })
-    .catch((error) => {
+      bar.update(((i + chunk.length) * 100) / parts.length)
+    } catch (error) {
       console.error('Ein Fehler ist aufgetreten:', error)
-    })
+    }
+  }
+
+  bar.stop()
 }
 
 run()
