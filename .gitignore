@@ -139,6 +139,9 @@ pip-selfcheck.json
 node_modules
 1_wikisplitter_output
 2_wikitext_parser_output
+3_pageviews
 articles_with_events
 dump.xml
 articles_with_events_*/
+1_wikitext_parser_output_2
+pageview_dumps

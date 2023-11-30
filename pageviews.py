@@ -1,6 +1,19 @@
 import aiohttp
 import asyncio
 import json
+import os
+import logging
+
+# Konfiguration des Logging
+logging.basicConfig(level=logging.WARNING,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+def get_json_file_iterator(folder_path):
+    """ Erzeugt einen Iterator über alle JSON-Dateien im angegebenen Verzeichnis. """
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.json'):
+            yield filename
 
 
 async def fetch_pageviews(session, article, year):
@@ -9,42 +22,72 @@ async def fetch_pageviews(session, article, year):
     access = "all-access"
     agent = "user"
 
-    start_date = f"{year}0101"  # Erster Tag des Jahres
-    end_date = f"{year}1231"    # Letzter Tag des Jahres
+    start_date = f"{year}0101"
+    end_date = f"{year}1231"
 
-    url = f"{base_url}/{domain}/{access}/{agent}/{article}/monthly/{start_date}/{end_date}"
+    url = f"{base_url}/{domain}/{access}/{agent}/{article['title']}/monthly/{start_date}/{end_date}"
 
     async with session.get(url) as response:
         if response.status == 200:
             data = await response.json()
-            return article, data
+            total_views = sum(item['views'] for item in data['items'])
+            article['pageviews'] = total_views
+            logging.debug(f"Pageviews for {article['title']}: {total_views}")
         else:
-            return article, None
+            article['pageviews'] = None
+            logging.warning(f"Failed to retrieve data for {article['title']}")
+    return article
+
+
+async def process_articles(articles, year, output_folder):
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch_pageviews(session, article, year)
+                 for article in articles]
+        articles_with_views = await asyncio.gather(*tasks)
+
+        filename = articles[0]['source_file']
+        output_path = os.path.join(output_folder, filename)
+        with open(output_path, 'w') as f:
+            json.dump(articles_with_views, f, indent=4)
+        logging.info(f"Processed articles saved in {output_path}")
+
+
+def load_articles_from_json(json_file_iterator, folder_path, max_articles=500):
+    articles = []
+    while len(articles) < max_articles:
+        try:
+            filename = next(json_file_iterator)
+            logging.debug(f"Loading articles from {filename}")
+        except StopIteration:
+            logging.info("No more files to process")
+            break  # Keine weiteren Dateien zum Verarbeiten
+
+        with open(os.path.join(folder_path, filename)) as f:
+            file_articles = json.load(f)
+            remaining_space = max_articles - len(articles)
+            # Nur so viele Artikel hinzufügen, wie Platz ist
+            articles_to_add = file_articles[:remaining_space]
+            for article in articles_to_add:
+                article['source_file'] = filename
+                articles.append(article)
+
+    return articles
 
 
 async def main():
-    with open('./articles_with_dates.json') as f:
-        articles = json.load(f)
-        articles_titles = [article['title'] for article in articles]
-        print(f"Number of articles: {len(articles_titles)}")
-    # Start- und Enddatum im Format YYYYMMDD
+    folder_path = './1_wikitext_parser_output_2'
+    output_folder = './3_pageviews'
     year = "2023"
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for articles_title in articles_titles:
-            task = asyncio.ensure_future(fetch_pageviews(
-                session, articles_title, year))
-            tasks.append(task)
 
-        responses = await asyncio.gather(*tasks)
+    json_file_iterator = get_json_file_iterator(folder_path)
 
-        for article, data in responses:
-            if data:
-                total_views = sum(item['views'] for item in data['items'])
-                print(
-                    f"Total Pageviews for {article} in {year}: {total_views}")
-            else:
-                print(f"Failed to retrieve data for {article}")
+    while True:
+        articles = load_articles_from_json(json_file_iterator, folder_path)
+        if not articles:
+            logging.info("No more articles to process")
+            break
+
+        await process_articles(articles, year, output_folder)
 
 # Führt die asynchrone Hauptfunktion aus
 asyncio.run(main())
